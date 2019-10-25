@@ -1,12 +1,18 @@
 use std::fmt::Write as _;
 use std::io::Write as _;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::{env, fs};
 
 use main_error::MainError;
 
+const DEFAULT_EDITOR: &str = "/usr/bin/nano";
+
 fn main() -> Result<(), MainError> {
-    let editor = env::var("EDITOR")?;
+    let editor = match env::var("EDITOR") {
+        Err(_) => String::from(DEFAULT_EDITOR),
+        Ok(editor) if editor.is_empty() => String::from(DEFAULT_EDITOR),
+        Ok(editor) => editor,
+    };
 
     let mut entries = String::new();
     for entry in fs::read_dir(".")? {
@@ -18,16 +24,24 @@ fn main() -> Result<(), MainError> {
         }
     }
 
-    let mut file = tempfile::tempfile()?;
+    let mut file = tempfile::NamedTempFile::new()?;
     file.write_all(entries.as_bytes())?;
 
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(editor)
-        .stdin(file)
+    // FIXME this is absolutely wrong
+    let args: Vec<_> = editor.split_whitespace().collect();
+
+    let output = Command::new(args[0])
+        .args(&args[1..])
+        .arg(&file.path().to_str().unwrap())
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
         .output()?;
 
-    let new_entries = String::from_utf8(output.stdout)?;
+    if !output.status.success() {
+        return Err(MainError::from("Process didn't exit successfully, aborting"));
+    }
+
+    let new_entries = fs::read_to_string(file)?;
 
     if entries.lines().count() != new_entries.lines().count() {
         return Err(MainError::from("The number of entries must be identical"));
