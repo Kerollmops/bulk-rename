@@ -1,6 +1,7 @@
 use std::fmt::Write as _;
 use std::io::Write as _;
 use std::process::{Command, Stdio};
+use std::ffi::OsString;
 use std::{env, fs};
 
 use main_error::MainError;
@@ -8,10 +9,10 @@ use main_error::MainError;
 const DEFAULT_EDITOR: &str = "/usr/bin/nano";
 
 fn main() -> Result<(), MainError> {
-    let editor = match env::var("EDITOR") {
-        Err(_) => String::from(DEFAULT_EDITOR),
-        Ok(editor) if editor.is_empty() => String::from(DEFAULT_EDITOR),
-        Ok(editor) => editor,
+    let mut editor = match env::var("EDITOR") {
+        Err(_) => OsString::from(DEFAULT_EDITOR),
+        Ok(editor) if editor.is_empty() => OsString::from(DEFAULT_EDITOR),
+        Ok(editor) => editor.into(),
     };
 
     let mut entries = String::new();
@@ -27,12 +28,12 @@ fn main() -> Result<(), MainError> {
     let mut file = tempfile::NamedTempFile::new()?;
     file.write_all(entries.as_bytes())?;
 
-    // FIXME this is absolutely wrong
-    let args: Vec<_> = editor.split_whitespace().collect();
+    editor.push(" ");
+    editor.push(file.path());
 
-    let output = Command::new(args[0])
-        .args(&args[1..])
-        .arg(&file.path().to_str().unwrap())
+    let output = Command::new("sh")
+        .arg("-ic")
+        .arg(editor)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .output()?;
