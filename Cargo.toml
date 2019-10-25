@@ -1,0 +1,14 @@
+[package]
+name = "bulk-rename"
+version = "0.1.0"
+description = "A little tool to rename all the files in the current directory using your editor"
+license = "MIT"
+repository = "https://github.com/Kerollmops/bulk-rename"
+readme = "README.md"
+authors = ["Clément Renault <clement@meilisearch.com>"]
+edition = "2018"
+
+
+[dependencies]
+main_error = "0.1.0"
+tempfile = "3.1.0"
